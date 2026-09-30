@@ -1,0 +1,9 @@
+{
+  "name": "mobile",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "echo 'Expo app is scaffolded in Phase 5 (see README); run pnpm install with expo deps first' && exit 1",
+    "typecheck": "echo 'mobile typecheck starts with the Expo scaffold (Phase 5)'"
+  }
+}

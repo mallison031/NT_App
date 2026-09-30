@@ -1,3 +1,14 @@
 packages:
   - apps/*
   - packages/*
+
+# prisma and esbuild only produce working native artifacts if their install scripts run.
+# The dockerode/testcontainers natives have JS fallbacks, so they stay unbuilt by choice.
+allowBuilds:
+  '@prisma/client': false
+  '@prisma/engines': true
+  cpu-features: false
+  esbuild: true
+  prisma: true
+  protobufjs: false
+  ssh2: false
