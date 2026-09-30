@@ -1,17 +1,84 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"  url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
 
 // Money: BigInt kobo. Percent: basis points (3000 = 30%). Rules live in ChallengeProductVersion, never in code.
 
-enum AccountStatus { UNKNOWN PENDING_PROVISION EVALUATION PASSED_AWAITING_UPGRADE FUNDED BREACHED CLOSED }
-enum Phase { EVAL_1 EVAL_2 EVAL_3 FUNDED }
-enum OrderStatus { PENDING_PAYMENT PAID FULFILLING PENDING_RECONCILE FULFILLED FAILED EXPIRED REFUNDED }
-enum PaymentStatus { INITIATED SUCCEEDED FAILED AMOUNT_MISMATCH REFUNDED }
-enum PayoutStatus { REQUESTED UNDER_REVIEW APPROVED PAID REJECTED FAILED }
-enum ResetStatus { REQUESTED APPROVED PENDING_RECONCILE REJECTED COMPLETED }
-enum TicketStatus { OPEN PENDING_USER PENDING_STAFF RESOLVED CLOSED }
-enum BreachReason { MAX_DRAWDOWN DAILY_DRAWDOWN TIME_LIMIT RULE_VIOLATION MANUAL }
-enum NotificationType { PHASE_PASSED DRAWDOWN_WARNING BREACH DEADLINE PAYOUT_UPDATE ORDER_UPDATE RESET_UPDATE TICKET_UPDATE }
+enum AccountStatus {
+  UNKNOWN
+  PENDING_PROVISION
+  EVALUATION
+  PASSED_AWAITING_UPGRADE
+  FUNDED
+  BREACHED
+  CLOSED
+}
+enum Phase {
+  EVAL_1
+  EVAL_2
+  EVAL_3
+  FUNDED
+}
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  FULFILLING
+  PENDING_RECONCILE
+  FULFILLED
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+enum PaymentStatus {
+  INITIATED
+  SUCCEEDED
+  FAILED
+  AMOUNT_MISMATCH
+  REFUNDED
+}
+enum PayoutStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  PAID
+  REJECTED
+  FAILED
+}
+enum ResetStatus {
+  REQUESTED
+  APPROVED
+  PENDING_RECONCILE
+  REJECTED
+  COMPLETED
+}
+enum TicketStatus {
+  OPEN
+  PENDING_USER
+  PENDING_STAFF
+  RESOLVED
+  CLOSED
+}
+enum BreachReason {
+  MAX_DRAWDOWN
+  DAILY_DRAWDOWN
+  TIME_LIMIT
+  RULE_VIOLATION
+  MANUAL
+}
+enum NotificationType {
+  PHASE_PASSED
+  DRAWDOWN_WARNING
+  BREACH
+  DEADLINE
+  PAYOUT_UPDATE
+  ORDER_UPDATE
+  RESET_UPDATE
+  TICKET_UPDATE
+}
 
 model User {
   id            String   @id @default(uuid())

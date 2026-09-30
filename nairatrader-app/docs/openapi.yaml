@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info:
+  title: NairaTrader Companion API
+  version: 0.0.0
+  description: |
+    Conventions (Architecture section 6): REST under /v1, cursor pagination, error shape
+    {code, message, details}, money as a decimal string of kobo, and Idempotency-Key required
+    on every POST that creates an order, payout or reset.
+    This file currently documents only what exists. Endpoints are added with their phase.
+servers:
+  - url: /
+    description: Resource paths move under /v1 as the first real endpoint lands.
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Liveness and active gateway selection
+      responses:
+        '200':
+          description: Service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, gateways]
+                properties:
+                  ok:
+                    type: boolean
+                  gateways:
+                    type: object
+                    properties:
+                      trading:
+                        type: string
+                        enum: [fake, mt5]
+                      identity:
+                        type: string
+                        enum: [fake, real]
+                      payments:
+                        type: string
+                        enum: [paystack]
+components:
+  schemas:
+    Kobo:
+      type: string
+      pattern: '^-?\d+$'
+      description: Decimal string of kobo. Never a float (D2).

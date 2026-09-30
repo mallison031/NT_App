@@ -1,4 +1,9 @@
-node_modules
+node_modules/
 .env
-dist
-.expo
+.env.*
+!.env.example
+dist/
+coverage/
+.expo/
+*.tsbuildinfo
+.DS_Store

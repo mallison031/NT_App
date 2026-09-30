@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@nt/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "test", "prisma", "vitest.config.ts"]
+}
