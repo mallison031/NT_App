@@ -36,6 +36,8 @@ export async function isDockerUp(): Promise<boolean> {
 
 export type TestDb = {
   prisma: PrismaClient;
+  /** Passed to the app under test, so a test never points the composition root at another database. */
+  url: string;
   stop: () => Promise<void>;
 };
 
@@ -52,6 +54,7 @@ export async function startTestDb(): Promise<TestDb> {
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   return {
     prisma,
+    url: databaseUrl,
     stop: async () => {
       await prisma.$disconnect();
       await container.stop();

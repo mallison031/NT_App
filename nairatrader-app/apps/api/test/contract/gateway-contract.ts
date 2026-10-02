@@ -308,6 +308,30 @@ export function describeGatewayContract(gateways: ContractGateways): void {
       expect(sourced.data.status).toBe('INITIATED');
     });
 
+    it('lets the processor hold an amount nobody asked for, and reports it truthfully on read (D13f)', async () => {
+      const h = gateways.payments();
+      // The misprice is arranged upstream because that is where the bug is: the app's only defence
+      // is the confirmation read, and a gateway that always agrees cannot test it.
+      h.mispriceNextCharge(koboFromString('2500.01'));
+      const providerRef = await h.charge({ ...order, idempotencyKey: 'idem-order-mispriced' });
+      const confirmed = accepted(await h.gateway.getCharge(providerRef), 'mispriced charge');
+      expect(confirmed.data.amountKobo).toBe(koboFromString('2500.01'));
+      expect(confirmed.data.amountKobo).not.toBe(order.amountKobo);
+    });
+
+    it('answers a fresh charge with a reference it has already issued, and creates nothing new', async () => {
+      const h = gateways.payments();
+      const first = await h.charge(order);
+      // Arranged upstream again: only the processor decides what a reference means.
+      h.reuseLastChargeRef();
+      const second = await h.charge({ ...order, idempotencyKey: 'idem-order-reused-ref' });
+      expect(second).toBe(first);
+      // One charge sits behind two different answers. This app dedupes on (provider, providerRef)
+      // (hard rule 4), so a caller that stored the second answer as its own would account the
+      // same money twice — and overwrite the first owner's row while doing it.
+      expect(h.chargeWrites()).toBe(1);
+    });
+
     it('returns the same charge for a replayed idempotency key, and creates nothing new (D5)', async () => {
       const h = gateways.payments();
       const first = await h.charge(order);

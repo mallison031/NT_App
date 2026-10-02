@@ -148,13 +148,18 @@ export function accountStateToJson(state: AccountState): AccountStateWire {
     drawdownLimitBps: state.drawdownLimitBps,
     drawdownUsedBps: state.drawdownUsedBps,
     drawdownTimezone: state.drawdownTimezone,
-    phaseDeadline: state.phaseDeadline === null ? null : toUtcIso(state.phaseDeadline),
-    asOf: toUtcIso(state.asOf),
+    phaseDeadline: state.phaseDeadline === null ? null : toUtcIsoString(state.phaseDeadline),
+    asOf: toUtcIsoString(state.asOf),
     source: state.source,
   };
 }
 
-const toUtcIso = (date: Date): string => date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+/**
+ * The one way a Date leaves this API as an instant (D13a): UTC ISO, no milliseconds, never a
+ * local-time string a client would have to guess the zone of. Shared because the purchase
+ * payloads carry the same rule as the account contract.
+ */
+export const toUtcIsoString = (date: Date): string => date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 // D8 / F1 acceptance criterion: data older than five minutes must wear a stale badge.
 export const STALE_AFTER_MS = 5 * 60 * 1000;
