@@ -53,9 +53,78 @@ describe.skipIf(skip)('postgres round trip', () => {
     expect(account.contractVersion).toBe(1);
   });
 
-  it('rejects a second payout request that is still open for the same account (F3)', async () => {
+  it('starts an account incomplete and holds the contract numbers it later caches (D13b)', async () => {
     const { prisma } = db;
-    const user = await prisma.user.create({ data: { externalId: 'ext-4' } });
+    const user = await prisma.user.create({ data: { externalId: 'ext-5' } });
+    const created = await prisma.tradingAccount.create({ data: { userId: user.id } });
+    // No read has proved this account whole yet, so the default has to be the pessimistic one.
+    expect(created.stateComplete).toBe(false);
+
+    const synced = await prisma.tradingAccount.update({
+      where: { id: created.id },
+      data: {
+        stateComplete: true,
+        profitTargetBps: 3000,
+        drawdownLimitBps: 1000,
+        drawdownUsedBps: 120,
+        drawdownTimezone: 'Africa/Lagos',
+        balanceKobo: 125_000_000n,
+      },
+    });
+    expect(synced).toMatchObject({
+      stateComplete: true,
+      profitTargetBps: 3000,
+      drawdownLimitBps: 1000,
+      drawdownUsedBps: 120,
+      drawdownTimezone: 'Africa/Lagos',
+    });
+    expect(synced.balanceKobo).toBe(125_000_000n);
+  });
+
+  it('stores every UNKNOWN the seam can produce, so a held value is never a guess (D13e)', async () => {
+    const { prisma } = db;
+    const user = await prisma.user.create({ data: { externalId: 'ext-6' } });
+    const account = await prisma.tradingAccount.create({ data: { userId: user.id, phase: 'UNKNOWN' } });
+    expect(account.phase).toBe('UNKNOWN');
+
+    // A payment whose provider status nobody mapped is recorded as UNKNOWN rather than
+    // defaulted to SUCCEEDED, which is the difference between holding an order and paying out
+    // on money we never confirmed.
+    const order = await prisma.order.create({
+      data: {
+        // A nested quote create forces Prisma's checked input, which wants the relation rather
+        // than the scalar id.
+        user: { connect: { id: user.id } },
+        idempotencyKey: 'idem-int-1',
+        quote: {
+          create: {
+            userId: user.id,
+            amountKobo: 250_000n,
+            expiresAt: new Date('2026-04-01T00:00:00Z'),
+            version: {
+              create: {
+                accountSizeKobo: 10_000_000_000n,
+                priceKobo: 250_000n,
+                phaseCount: 3,
+                phaseRules: [],
+                fundedDrawdownBps: 1000,
+                profitShareBps: 8000,
+                effectiveFrom: new Date('2026-01-01T00:00:00Z'),
+                product: { create: { slug: 'int-fixture', name: 'Integration fixture' } },
+              },
+            },
+          },
+        },
+        payments: { create: [{ provider: 'fixture', providerRef: 'evt-int-1', amountKobo: 250_000n, status: 'UNKNOWN' }] },
+      },
+      include: { payments: true },
+    });
+    expect(order.payments[0]?.status).toBe('UNKNOWN');
+  });
+
+  it('carries a payout through PENDING_RECONCILE, the state a lost response parks it in (D13c)', async () => {
+    const { prisma } = db;
+    const user = await prisma.user.create({ data: { externalId: 'ext-7' } });
     const account = await prisma.tradingAccount.create({ data: { userId: user.id } });
     const method = await prisma.payoutMethod.create({
       data: {
@@ -67,19 +136,34 @@ describe.skipIf(skip)('postgres round trip', () => {
       },
     });
 
-    await prisma.payoutRequest.create({
+    const payout = await prisma.payoutRequest.create({
       data: {
         userId: user.id,
         accountId: account.id,
         methodId: method.id,
-        amountKobo: 5_000_00n,
-        idempotencyKey: 'k-1',
+        amountKobo: 500_00n,
+        idempotencyKey: 'payout-reconcile-1',
       },
     });
-
-    const open = await prisma.payoutRequest.findFirst({
-      where: { accountId: account.id, status: { in: ['REQUESTED', 'UNDER_REVIEW', 'APPROVED'] } },
+    const parked = await prisma.payoutRequest.update({
+      where: { id: payout.id },
+      data: { status: 'PENDING_RECONCILE' },
     });
-    expect(open).not.toBeNull();
+    expect(parked.status).toBe('PENDING_RECONCILE');
+
+    // The same key must not start a second request: this is what makes the reconcile job's
+    // retry harmless. (That only *one* payout may be open per account, F3, is a service rule
+    // and no constraint enforces it here — it lands with the payout module in Phase 3.)
+    await expect(
+      prisma.payoutRequest.create({
+        data: {
+          userId: user.id,
+          accountId: account.id,
+          methodId: method.id,
+          amountKobo: 500_00n,
+          idempotencyKey: 'payout-reconcile-1',
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'P2002' });
   });
 });
