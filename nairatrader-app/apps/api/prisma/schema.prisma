@@ -164,6 +164,8 @@ model Order {
   createdAt DateTime    @default(now())
   payments  Payment[]
   account   TradingAccount?
+  // The reconcile pass scans orders held in FULFILLING / PENDING_RECONCILE (D13c).
+  @@index([status])
 }
 
 model Payment {
@@ -196,6 +198,10 @@ model TradingAccount {
   order         Order?   @relation(fields: [orderId], references: [id])
   mtLogin       String?  @unique
   credentialsEnc Bytes?   // AES-GCM ciphertext, shown once
+  // D11: what provisioning actually returns is a handle for the credential, not the credential.
+  // The password is handed to the trader once and is only re-issuable through a reset, so the
+  // read model needs a place to keep the handle without ever holding a secret.
+  mtCredentialHandle String?
   status        AccountStatus @default(PENDING_PROVISION)
   phase         Phase    @default(EVAL_1)
   phaseDeadline DateTime?

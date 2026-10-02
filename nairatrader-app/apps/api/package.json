@@ -10,6 +10,9 @@
     "test": "vitest run",
     "prisma": "prisma"
   },
+  "prisma": {
+    "seed": "tsx --env-file-if-exists=.env prisma/seed-dev.ts"
+  },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "fastify": "^5.12.5",

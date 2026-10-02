@@ -73,6 +73,18 @@ export type PaymentsHarness = {
   /** Start a charge and return its provider reference. */
   charge(input: { idempotencyKey: string; orderId: string; amountKobo: Kobo }): Promise<string>;
   /**
+   * Arrange for the processor to create the next charge at an amount other than the one asked
+   * for (D13f). A real sandbox may not be able to do this, and reporting that is a finding.
+   */
+  mispriceNextCharge(amountKobo: Kobo): void;
+  /**
+   * Arrange for the processor to answer the next charge with a `providerRef` it has already
+   * issued. References are this app's dedupe key (hard rule 4), so a provider that reuses one is
+   * an answer that contradicts the database; the guard under test has to survive it. A real
+   * sandbox may not let a test force this, and reporting that is a finding.
+   */
+  reuseLastChargeRef(): void;
+  /**
    * Deliver a provider webhook for that charge, as an inbound HTTP body would arrive.
    * `status` is the provider's own spelling, so a new one exercises the mapping gap.
    */

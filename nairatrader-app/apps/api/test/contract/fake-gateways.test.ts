@@ -117,6 +117,12 @@ function fakePayments(setup: ContractSetup = {}): PaymentsHarness {
       fake.forceNext(kind);
     },
     charge: (input) => createCharge(fake, input),
+    mispriceNextCharge: (amountKobo) => {
+      fake.mispriceNextCharge(amountKobo);
+    },
+    reuseLastChargeRef: () => {
+      fake.reuseLastChargeRef();
+    },
     deliverWebhook: async (providerRef, status) => fake.webhookFor(providerRef, status),
     tamperSignature: (input) => corruptBody(input),
     // Correctly signed, and still not something a processor would POST about a charge.

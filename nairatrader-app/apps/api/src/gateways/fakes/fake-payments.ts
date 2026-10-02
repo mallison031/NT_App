@@ -3,7 +3,7 @@
 // creation *after* creating it — because those are the behaviours that break a money path, and
 // a fake that only ever succeeds proves nothing.
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import {
   isKoboString,
@@ -76,8 +76,18 @@ export class FakePayments implements PaymentsGateway {
   readonly #chargesByReference = new Map<string, Charge>();
   readonly #referenceByCharge = new Map<string, string>();
   readonly #delivered = new Map<string, DeliveredWebhook[]>();
+  /**
+   * A processor's charge references and event ids are globally unique, and this app dedupes on
+   * both ((provider, providerRef) and (provider, eventId), hard rule 4). So does the fake *across
+   * processes*: counting from 1 again after a restart hands out identifiers a previous process
+   * already used, and the dev database — which outlives the process — reads the next delivery as a
+   * duplicate of one it has already closed.
+   */
+  readonly #instance = randomBytes(4).toString('hex');
   #nextCharge = 1;
   #nextEvent = 1;
+  #nextAmount: Kobo | null = null;
+  #reuseLastRef = false;
   #initCharges = 0;
   #duplicateDeliveries = 0;
   #outOfOrderDeliveries = 0;
@@ -109,6 +119,25 @@ export class FakePayments implements PaymentsGateway {
 
   public forceNext(kind: QueuedFault['kind'], detail = 'forced by test', ref?: string): void {
     this.#resolved.queue.push({ kind, detail, ref });
+  }
+
+  /**
+   * Make the processor create the next charge at this amount, whatever the caller asked for.
+   * Charging an amount nobody quoted is the failure D13f exists for, and it is a provider-side
+   * fact rather than a client bug — a fake that cannot do it proves nothing about the guard.
+   */
+  public mispriceNextCharge(amountKobo: Kobo): void {
+    this.#nextAmount = amountKobo;
+  }
+
+  /**
+   * Sell the next charge a reference the processor has already used: the most recent one it
+   * created, with nothing new behind it. Same failure class as a mispriced charge — only the
+   * provider decides what a reference means, and this app dedupes on it (hard rule 4), so it has
+   * to survive an answer that contradicts its own records.
+   */
+  public reuseLastChargeRef(): void {
+    this.#reuseLastRef = true;
   }
 
   // ---- PaymentsGateway -------------------------------------------------------------------
@@ -215,7 +244,7 @@ export class FakePayments implements PaymentsGateway {
     const replay = this.#replayFor(history);
     if (replay !== undefined) return this.#sign(replay.body);
 
-    const eventId = `evt-${this.#nextEvent++}`;
+    const eventId = `evt_${this.#instance}-${this.#nextEvent++}`;
     const body = JSON.stringify({
       id: eventId,
       event: `charge.${status}`,
@@ -266,13 +295,26 @@ export class FakePayments implements PaymentsGateway {
     const existing = this.#chargesByReference.get(req.idempotencyKey);
     if (existing) return existing;
 
+    if (this.#reuseLastRef) {
+      this.#reuseLastRef = false;
+      const reused = [...this.#charges.values()].at(-1);
+      if (reused !== undefined) {
+        // Registered under the new key so a retry replays the same answer, but nothing new is
+        // created: the processor handed back a reference it had already used, so `initCharges`
+        // still counts one charge for both callers.
+        this.#chargesByReference.set(req.idempotencyKey, reused);
+        return reused;
+      }
+    }
+
     const charge: Charge = {
       provider: PROVIDER,
-      providerRef: `chg_${this.#nextCharge++}`,
-      amountKobo: req.amountKobo,
+      providerRef: `chg_${this.#instance}_${this.#nextCharge++}`,
+      amountKobo: this.#nextAmount ?? req.amountKobo,
       status: PaymentStatus.Initiated,
       paidAt: null,
     };
+    this.#nextAmount = null;
     this.#charges.set(charge.providerRef, charge);
     this.#chargesByReference.set(req.idempotencyKey, charge);
     this.#referenceByCharge.set(charge.providerRef, req.idempotencyKey);

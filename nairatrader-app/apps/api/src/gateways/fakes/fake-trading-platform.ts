@@ -8,6 +8,7 @@
 // docs/payload-spike.md, and the real adapter brings its own table (D13e). Never copy these
 // into an adapter as if they were MT5 values.
 
+import { randomInt } from 'node:crypto';
 import {
   type AccountState,
   type AccountStateWire,
@@ -122,7 +123,12 @@ export class FakeTradingPlatform implements TradingPlatformGateway {
   #contractVersion = ACCOUNT_STATE_CONTRACT_VERSION;
   #dropField: keyof AccountStateWire | null = null;
   #forceUnmapped = false;
-  #nextLogin = 41_000_001;
+  /**
+   * Logins are unique in this app's database, and a real MT5 server does not reissue one. The
+   * fake starts each process somewhere else in the same eight-digit range for the same reason, so
+   * a second dev run cannot provision into a login the first run already wrote.
+   */
+  #nextLogin = 41_000_001 + randomInt(0, 9_000_000);
   #nextTicket = 1;
   #provisionWrites = 0;
   #resetWrites = 0;

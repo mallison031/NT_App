@@ -9,7 +9,12 @@ const EnvSchema = z.object({
   REDIS_URL: z.string().min(1).optional(),
   TRADING_GATEWAY: z.enum(['fake', 'mt5']).default('fake'),
   IDENTITY_GATEWAY: z.enum(['fake', 'real']).default('fake'),
-  PAYMENTS_PROVIDER: z.enum(['paystack']).default('paystack'),
+  // The three switches choose an *implementation*, so they all default to the Fake gateway:
+  // hard rule "when blocked by an unknown, implement against the Fake and stop". The real
+  // values name the systems the Phase 6 spike will confirm, and gateways/registry.ts refuses
+  // to build them until an adapter exists.
+  // VERIFY: owner confirms paystack is the processor; PRD section 5 leaves it open.
+  PAYMENTS_PROVIDER: z.enum(['fake', 'paystack']).default('fake'),
   PAYMENTS_SECRET_KEY: z.string().min(1).optional(),
   PAYMENTS_WEBHOOK_SECRET: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(32).optional(),
@@ -25,4 +30,3 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
 
 // JWT_SECRET and KMS_KEY_ID are optional only so the fake-gateway dev loop runs;
 // the auth and crypto modules make them required when they land.
-// VERIFY: owner confirms whether PAYMENTS_PROVIDER ever gains a second value.
