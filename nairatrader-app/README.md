@@ -41,31 +41,60 @@ Copy `.env.example` to `apps/api/.env`. Only `DATABASE_URL` is required to boot.
 
 ## Where the project stands
 
-Phase 0 (build system) is in place and green: `pnpm install`, `pnpm lint`, `pnpm typecheck` and
-`pnpm test` all pass — 22 tests (18 in `apps/api`, 4 in `packages/shared`), of which 4 run against
-a real Postgres 16 container. Toolchain versions are pinned and the reasons are recorded in
+Phase 0 (build system) and Phase 1 (gateway seam + shared contracts) are in place and green:
+`pnpm install`, `pnpm lint`, `pnpm typecheck` and `pnpm test` all pass — 133 tests (84 in
+`apps/api`, 49 in `packages/shared`), of which 6 run against a real Postgres 16 container.
+Toolchain versions are pinned and the reasons are recorded in
 `docs/adr/0002-pin-toolchain-prisma6-typescript6.md`.
 
+Phase 1 built the seam between the BFF and the three systems it does not own (D6, D13):
+
+- `packages/shared/src/money.ts` — the only kobo ↔ decimal-string converter, plus basis-point
+  arithmetic (D2, hard rule 1).
+- `packages/shared/src/schemas/account-state.ts` — the Account State Contract with its version
+  gate, required fields, staleness rule and `complete` guard (D13a, D13b).
+- `apps/api/src/gateways/types.ts` — the three gateway interfaces, `Sourced<T>` provenance and the
+  four typed failure kinds (D13b, D13c).
+- `apps/api/src/gateways/normalize.ts` — a value outside an adapter's mapping table becomes
+  `UNKNOWN` and is reported, never guessed (D13e).
+- `apps/api/src/gateways/fault-profile.ts` and `fakes/` — three hostile fakes with seeded,
+  basis-point-rate fault injection (D13g).
+- `apps/api/test/contract/gateway-contract.ts` — one suite that any gateway implementation must
+  pass. It runs against the fakes today; the Phase 6 adapters reuse it unchanged.
+
 Already covered by tests: environment validation, the schema/enum drift guard between
-`schema.prisma` and `@nt/shared`, and BigInt kobo round-trips, the `UNKNOWN` status, D13b
-provenance columns and the one-open-payout rule against a real Postgres.
+`schema.prisma` and `@nt/shared`, kobo parsing and formatting, the contract version gate and its
+required-field refusals, unmapped-value handling, ticket/idempotency write discipline, webhook
+signature rejection, and — against a real Postgres — BigInt kobo round-trips, the `UNKNOWN`
+account/phase/payment statuses, the D13b provenance and rule columns, `PENDING_RECONCILE` and
+payout idempotency-key uniqueness.
 
 There is deliberately no seed yet: seeding `ChallengeProductVersion` rows would mean inventing the
 conflicting business rules PRD section 6 says the owner must resolve (hard rule 10). It arrives with
 the catalog module in Phase 2.
 
-Not yet built, by phase: the gateway seam and shared contracts (1), purchase money path (2),
-payouts and resets (3), sync + notifications (4), the Expo client (5), real gateway adapters
-and shadow mode (6). `docs/payload-spike.md` and `docs/shadow-mode.md` are the gate records for
-Phase 6 and are still empty because the spike needs system access.
+Not yet built, by phase: purchase money path (2), payouts and resets (3), sync + notifications (4),
+the Expo client (5), real gateway adapters and shadow mode (6). `docs/payload-spike.md` and
+`docs/shadow-mode.md` are the gate records for Phase 6 and are still empty because the spike needs
+system access.
 
 `pnpm --filter mobile start` intentionally fails until Phase 5 creates the Expo project, so
 versions come from `create-expo-app` rather than guesswork.
 
-## Known schema gaps to resolve before the first production migration
+## Schema: closed in Phase 1, and still the owner's to decide
 
-- `PayoutStatus` has no `PENDING_RECONCILE`, which D13c requires for `unknown_outcome`.
-- `TradingAccount` persists `asOf`/`stateSource`/`contractVersion` but not `complete` (D13b).
-- The Account State Contract carries `profitTargetBps`, `drawdownLimitBps`, `drawdownUsedBps`,
-  `drawdownTimezone` with no columns anywhere, so PRD F1 has no storage path yet.
-- `Phase` has no `UNKNOWN` member while `AccountStatus` does.
+The four gaps listed here previously are closed: `Phase`, `BreachReason` and `PaymentStatus` each
+gained `UNKNOWN` (D13e), `PayoutStatus` gained `PENDING_RECONCILE` (D13c), and `TradingAccount` now
+stores `stateComplete` plus the contract's rule numbers (`profitTargetBps`, `drawdownLimitBps`,
+`drawdownUsedBps`, `drawdownTimezone`), so PRD F1 has a storage path. The drift guard keeps
+`schema.prisma` and `@nt/shared` in lockstep. No migration has been applied yet — the schema is
+still edited directly and pushed by the test suite, so the first real migration has to carry all of
+this.
+
+What the schema now stores without deciding (each one needs the owner, hard rule 10):
+
+- `withdrawableKobo` — whose number is it: the engine's, the gateway's, or a BFF calculation?
+- `drawdownTimezone` — stored and displayed; nothing resets daily drawdown using it yet.
+- Purchased rule values live in `AccountRuleSnapshot` (frozen at purchase) while the contract
+  reports current ones on `TradingAccount`. The two disagreeing is shadow-mode drift to alert on,
+  not something this build reconciles.

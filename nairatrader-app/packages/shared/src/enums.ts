@@ -13,6 +13,7 @@ export const AccountStatus = {
 export type AccountStatus = (typeof AccountStatus)[keyof typeof AccountStatus];
 
 export const Phase = {
+  Unknown: 'UNKNOWN',
   Eval1: 'EVAL_1',
   Eval2: 'EVAL_2',
   Eval3: 'EVAL_3',
@@ -33,6 +34,7 @@ export const OrderStatus = {
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const PaymentStatus = {
+  Unknown: 'UNKNOWN',
   Initiated: 'INITIATED',
   Succeeded: 'SUCCEEDED',
   Failed: 'FAILED',
@@ -45,6 +47,7 @@ export const PayoutStatus = {
   Requested: 'REQUESTED',
   UnderReview: 'UNDER_REVIEW',
   Approved: 'APPROVED',
+  PendingReconcile: 'PENDING_RECONCILE',
   Paid: 'PAID',
   Rejected: 'REJECTED',
   Failed: 'FAILED',
@@ -70,6 +73,7 @@ export const TicketStatus = {
 export type TicketStatus = (typeof TicketStatus)[keyof typeof TicketStatus];
 
 export const BreachReason = {
+  Unknown: 'UNKNOWN',
   MaxDrawdown: 'MAX_DRAWDOWN',
   DailyDrawdown: 'DAILY_DRAWDOWN',
   TimeLimit: 'TIME_LIMIT',

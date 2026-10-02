@@ -18,6 +18,7 @@ enum AccountStatus {
   CLOSED
 }
 enum Phase {
+  UNKNOWN
   EVAL_1
   EVAL_2
   EVAL_3
@@ -34,6 +35,7 @@ enum OrderStatus {
   REFUNDED
 }
 enum PaymentStatus {
+  UNKNOWN
   INITIATED
   SUCCEEDED
   FAILED
@@ -44,6 +46,7 @@ enum PayoutStatus {
   REQUESTED
   UNDER_REVIEW
   APPROVED
+  PENDING_RECONCILE
   PAID
   REJECTED
   FAILED
@@ -63,6 +66,7 @@ enum TicketStatus {
   CLOSED
 }
 enum BreachReason {
+  UNKNOWN
   MAX_DRAWDOWN
   DAILY_DRAWDOWN
   TIME_LIMIT
@@ -202,6 +206,14 @@ model TradingAccount {
   asOf          DateTime?  // gateway-reported data time (D13b)
   stateSource   String?
   contractVersion Int?
+  // The rest of the Account State Contract fields (D13a), cached from the last read. The
+  // purchased rule values stay frozen in AccountRuleSnapshot; where the two disagree is
+  // shadow-mode drift (D13h), which this table deliberately does not resolve.
+  profitTargetBps  Int?
+  drawdownLimitBps Int?
+  drawdownUsedBps  Int?
+  drawdownTimezone String?
+  stateComplete    Boolean @default(false) // D13b: complete=false may not drive a transition
   createdAt     DateTime @default(now())
   ruleSnapshot  AccountRuleSnapshot?
   snapshots     EquitySnapshot[]

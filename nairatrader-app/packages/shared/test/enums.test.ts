@@ -3,11 +3,14 @@ import {
   ACCOUNT_STATUSES,
   AccountStatus,
   BREACH_REASONS,
+  BreachReason,
   NOTIFICATION_TYPES,
   ORDER_STATUSES,
   PAYMENT_STATUSES,
   PAYOUT_STATUSES,
+  PayoutStatus,
   PHASES,
+  Phase,
   RESET_STATUSES,
   TICKET_STATUSES,
 } from '../src/index';
@@ -39,12 +42,17 @@ describe('shared enums', () => {
     }
   });
 
+  // D13e: every externally-mapped enum needs an UNKNOWN, not just the account status.
+  // A payout reason or a phase the adapter has never seen must be holdable, not guessed.
   it('keeps UNKNOWN available for unmapped gateway values (D13e)', () => {
     expect(ACCOUNT_STATUSES).toContain(AccountStatus.Unknown);
+    expect(PHASES).toContain(Phase.Unknown);
+    expect(BREACH_REASONS).toContain(BreachReason.Unknown);
   });
 
   it('keeps PENDING_RECONCILE on the money paths D13c holds open', () => {
     expect(ORDER_STATUSES).toContain('PENDING_RECONCILE');
     expect(RESET_STATUSES).toContain('PENDING_RECONCILE');
+    expect(PAYOUT_STATUSES).toContain(PayoutStatus.PendingReconcile);
   });
 });
